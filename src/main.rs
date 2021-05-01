@@ -1,6 +1,10 @@
+#[macro_use]
+extern crate lazy_static;
+
 use std::io::{self, Write};
 
 mod step_0;
+mod step_1;
 
 fn main() {
     loop {
