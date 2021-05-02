@@ -13,14 +13,8 @@ impl Reader {
         }
     }
 
-    pub fn next(&mut self) -> Option<&String> {
-        if self.position < self.tokens.len() {
-            let r = self.tokens.get(self.position);
-            self.position = self.position + 1;
-            r
-        } else {
-            None
-        }
+    pub fn next(&mut self) -> &String {
+        &self.tokens[self.position]
     }
 
     pub fn peek(&self) -> Option<&String> {
@@ -28,7 +22,55 @@ impl Reader {
     }
 }
 
-fn read_string(str: &str) {}
+fn read_string(str: &str) -> MalDataType {
+    let reader = Reader::new(tokenize(str));
+    read_form(reader)
+}
+
+fn read_form(reader: Reader) -> MalDataType {
+    let first_token = reader.peek();
+    match first_token {
+        // Some("(") => read_list(reader),
+        Some(_) => read_atom(reader),
+        None => MalDataType::None,
+    }
+}
+
+fn read_list(reader: Reader) {}
+
+fn read_atom(mut reader: Reader) -> MalDataType {
+    let first_token = reader.next();
+    if Regex::new(r"^\d+$").unwrap().is_match(&first_token) {
+        MalDataType::Number(first_token.parse::<isize>().unwrap())
+    } else {
+        // should this be a clone?
+        MalDataType::Symbol(first_token.clone())
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum MalDataType {
+    Number(isize),
+    Symbol(String),
+    None
+}
+
+#[cfg(test)]
+mod read_atom_tests {
+    use super::*;
+
+    #[test]
+    fn returns_numbers() {
+        let reader = Reader::new(vec![String::from("1")]);
+        assert_eq!(read_atom(reader), MalDataType::Number(1));
+    }
+
+    #[test]
+    fn returns_symbols() {
+        let reader = Reader::new(vec![String::from("+")]);
+        assert_eq!(read_atom(reader), MalDataType::Symbol(String::from("+")));
+    }
+}
 
 // https://github.com/kanaka/mal/blob/master/impls/rust/reader.rs#L32
 fn tokenize(str: &str) -> Vec<String> {
@@ -48,6 +90,7 @@ fn tokenize(str: &str) -> Vec<String> {
     }
     res
 }
+
 #[cfg(test)]
 mod reader_tests {
     use super::*;
@@ -66,7 +109,7 @@ mod reader_tests {
         let mut reader = Reader::new(v);
         let n = reader.next();
         // returns the first element
-        assert_eq!(n, Some(&String::from("a")));
+        assert_eq!(n, &String::from("a"));
         // and increments the position
         assert_eq!(reader.peek(), Some(&String::from("b")));
     }
