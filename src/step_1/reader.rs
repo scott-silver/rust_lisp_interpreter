@@ -1,79 +1,9 @@
+use crate::step_1::{MalAtom, MalDataType};
 use regex::Regex;
-
-pub struct Reader {
-    tokens: Vec<String>,
-    position: usize,
-}
-
-impl Reader {
-    pub fn new(tokens: Vec<String>) -> Reader {
-        Reader {
-            tokens,
-            position: 0,
-        }
-    }
-
-    pub fn next(&mut self) -> &String {
-        &self.tokens[self.position]
-    }
-
-    pub fn peek(&self) -> Option<&String> {
-        self.tokens.get(self.position)
-    }
-}
-
-fn read_string(str: &str) -> MalDataType {
-    let reader = Reader::new(tokenize(str));
-    read_form(reader)
-}
-
-fn read_form(reader: Reader) -> MalDataType {
-    let first_token = reader.peek();
-    match first_token {
-        // Some("(") => read_list(reader),
-        Some(_) => read_atom(reader),
-        None => MalDataType::None,
-    }
-}
-
-fn read_list(reader: Reader) {}
-
-fn read_atom(mut reader: Reader) -> MalDataType {
-    let first_token = reader.next();
-    if Regex::new(r"^\d+$").unwrap().is_match(&first_token) {
-        MalDataType::Number(first_token.parse::<isize>().unwrap())
-    } else {
-        // should this be a clone?
-        MalDataType::Symbol(first_token.clone())
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum MalDataType {
-    Number(isize),
-    Symbol(String),
-    None
-}
-
-#[cfg(test)]
-mod read_atom_tests {
-    use super::*;
-
-    #[test]
-    fn returns_numbers() {
-        let reader = Reader::new(vec![String::from("1")]);
-        assert_eq!(read_atom(reader), MalDataType::Number(1));
-    }
-
-    #[test]
-    fn returns_symbols() {
-        let reader = Reader::new(vec![String::from("+")]);
-        assert_eq!(read_atom(reader), MalDataType::Symbol(String::from("+")));
-    }
-}
+use std::io::{self, Write};
 
 // https://github.com/kanaka/mal/blob/master/impls/rust/reader.rs#L32
-fn tokenize(str: &str) -> Vec<String> {
+fn tokenize(str: String) -> Vec<String> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
             r###"[\s,]*(~@|[\[\]{}()'`~^@]|"(?:\\.|[^\\"])*"?|;.*|[^\s\[\]{}('"`,;)]+)"###
@@ -82,7 +12,7 @@ fn tokenize(str: &str) -> Vec<String> {
     }
 
     let mut res = vec![];
-    for cap in RE.captures_iter(str) {
+    for cap in RE.captures_iter(&str) {
         if cap[1].starts_with(";") {
             continue;
         }
@@ -91,42 +21,55 @@ fn tokenize(str: &str) -> Vec<String> {
     res
 }
 
-#[cfg(test)]
-mod reader_tests {
-    use super::*;
-
-    #[test]
-    fn peek() {
-        // no longer necessary
-        let a = String::from("a");
-        let reader = Reader::new(vec![a, "b".to_string(), "c".to_string()]);
-        assert_eq!(reader.peek(), Some(&String::from("a")));
-    }
-
-    #[test]
-    fn next() {
-        let v = vec![String::from("a"), String::from("b"), String::from("c")];
-        let mut reader = Reader::new(v);
-        let n = reader.next();
-        // returns the first element
-        assert_eq!(n, &String::from("a"));
-        // and increments the position
-        assert_eq!(reader.peek(), Some(&String::from("b")));
+fn consume_atom(atom: String) -> MalAtom {
+    if Regex::new(r"^\d+$").unwrap().is_match(&atom) {
+        MalAtom::Number(atom.parse::<isize>().unwrap())
+    } else {
+        MalAtom::Symbol(atom.to_string())
     }
 }
-#[cfg(test)]
-mod tokenize_tests {
-    use super::*;
 
-    #[test]
-    fn tokenize_list() {
-        let tokens = tokenize("(+ 1 2 3)");
-        // println!("{:?}", &tokens);
-        assert_eq!(&tokens[0], "(");
-        assert_eq!(&tokens[1], "+");
-        assert_eq!(&tokens[2], "1");
-        assert_eq!(&tokens[3], "2");
-        assert_eq!(&tokens[4], "3");
-        assert_eq!(&tokens[5], ")");
+fn consume_list(
+    tokens: Vec<String>,
+    accumulated_list: Vec<MalDataType>,
+) -> (Vec<String>, MalDataType) {
+    let first_token = &tokens[0];
+    // TODO: panic if first_token is nil
+
+    match first_token.as_str() {
+        ")" => (
+            tokens[1..].to_vec(),
+            MalDataType::List(accumulated_list.to_vec()),
+        ),
+        "(" => {
+            let (remaining_tokens, sub_accumulated_list) =
+                consume_list(tokens[1..].to_vec(), vec![]);
+            let mut new_vec = accumulated_list.to_vec();
+            new_vec.push(sub_accumulated_list);
+            consume_list(remaining_tokens, new_vec)
+        }
+        _ => {
+            let mut new_vec = accumulated_list.to_vec();
+            new_vec.push(MalDataType::Atom(consume_atom(first_token.to_string())));
+            consume_list(tokens[1..].to_vec(), new_vec)
+        }
     }
+}
+
+fn consume_tokens(tokens: Vec<String>) -> MalDataType {
+    // panic if tokens is empty?
+    let first_token = &tokens[0];
+
+    match first_token.as_str() {
+        ")" => panic!("unexpected close-parens"),
+        "(" => {
+            let (_remaining_tokens, accumulated_list) = consume_list(tokens[1..].to_vec(), vec![]);
+            accumulated_list
+        }
+        _ => MalDataType::Atom(consume_atom(first_token.to_string())),
+    }
+}
+
+pub fn read_string(x: String) -> MalDataType {
+    consume_tokens(tokenize(x))
 }

@@ -7,11 +7,11 @@ use std::io::{self, Write};
 mod step_0;
 mod step_1;
 
-fn rep_for_step(input: &String, step: u32) -> &str {
+fn rep_for_step(input: String, step: u32) -> String {
     match step {
-        0 => step_0::rep(&input),
-        1 => step_1::rep(&input),
-        _ => step_1::rep(&input),
+        0 => step_0::rep(input),
+        1 => step_1::rep(input),
+        _ => step_1::rep(input),
     }
 }
 
@@ -34,6 +34,6 @@ fn main() {
             .read_line(&mut input)
             .expect("Failed to read line");
 
-        println!("{}", rep_for_step(&input, step_arg_num));
+        println!("{}", rep_for_step(input, step_arg_num));
     }
 }
