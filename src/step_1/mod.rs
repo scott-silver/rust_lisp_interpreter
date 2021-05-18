@@ -1,17 +1,10 @@
 mod reader;
-use std::fmt;
+mod printer;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MalDataType {
     Atom(MalAtom),
     List(Vec<MalDataType>),
-}
-
-// delete in favor of printer function
-impl fmt::Display for MalDataType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -29,7 +22,7 @@ pub fn eval(x: MalDataType) -> MalDataType {
 }
 
 pub fn print(x: MalDataType) -> String {
-    x.to_string()
+    printer::print_string(x)
 }
 
 pub fn rep(x: String) -> String {

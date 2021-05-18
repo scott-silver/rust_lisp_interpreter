@@ -1,6 +1,5 @@
 use crate::step_1::{MalAtom, MalDataType};
 use regex::Regex;
-use std::io::{self, Write};
 
 // https://github.com/kanaka/mal/blob/master/impls/rust/reader.rs#L32
 fn tokenize(str: String) -> Vec<String> {
